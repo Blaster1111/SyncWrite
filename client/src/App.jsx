@@ -98,8 +98,7 @@ function App() {
 
     return (
         <div className="App">
-            <h1>Collaborative Editor</h1>
-            <h4>~ Rudra :)</h4>
+            <h1>SyncWrite</h1>
             <div className="status">
                 <div>Status: {isConnected ? '🟢 Connected' : '🔴 Disconnected'}</div>
                 {isInRoom && <div>Participants: {participants}</div>}
