@@ -13,7 +13,7 @@ function App() {
     const [participants, setParticipants] = useState(0);
 
     useEffect(() => {
-        const socketIo = io("http://localhost:5000");
+        const socketIo = io("https://syncwrite-jjsg.onrender.com");
 
         socketIo.on("connect", () => {
             console.log("Socket.IO connected");
