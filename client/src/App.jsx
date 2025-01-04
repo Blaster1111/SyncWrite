@@ -11,9 +11,11 @@ function App() {
     const [isInRoom, setIsInRoom] = useState(false);
     const [roomError, setRoomError] = useState("");
     const [participants, setParticipants] = useState(0);
+    const [isEditable, setIsEditable] = useState(true);
+    const [showModeDialog, setShowModeDialog] = useState(false);
 
     useEffect(() => {
-        const socketIo = io("https://syncwrite-jjsg.onrender.com");
+        const socketIo = io("localhost:3001");
 
         socketIo.on("connect", () => {
             console.log("Socket.IO connected");
@@ -27,17 +29,19 @@ function App() {
             setIsConnected(false);
         });
 
-        socketIo.on("roomCreated", (newRoomId) => {
-            setRoomId(newRoomId);
+        socketIo.on("roomCreated", ({ roomId, isEditable }) => {
+            setRoomId(roomId);
             setIsInRoom(true);
+            setIsEditable(isEditable);
             setRoomError("");
         });
 
-        socketIo.on("roomJoined", ({ roomId, document: initialDocument, participants }) => {
+        socketIo.on("roomJoined", ({ roomId, document: initialDocument, participants, isEditable }) => {
             setRoomId(roomId);
             setDocument(initialDocument);
             setIsInRoom(true);
             setParticipants(participants);
+            setIsEditable(isEditable);
             setRoomError("");
         });
 
@@ -62,28 +66,31 @@ function App() {
     }, []);
 
     const handleChange = useCallback((e) => {
+        if (!isEditable) return;
+        
         const newDocument = e.target.value;
         setDocument(newDocument);
 
         if (socket && socket.connected && roomId) {
             socket.emit("documentUpdate", { roomId, document: newDocument });
         }
-    }, [socket, roomId]);
+    }, [socket, roomId, isEditable]);
 
-    const handleCreateRoom = () => {
+    const generateRoomId = () => {
+        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz';
+        let roomId = '';
+        for (let i = 0; i < 5; i++) {
+            const randomIndex = Math.floor(Math.random() * characters.length);
+            roomId += characters[randomIndex];
+        }
+        return roomId;
+    };
+
+    const handleCreateRoom = (mode) => {
         if (socket && socket.connected) {
-            const generateRoomId = () => {
-                const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz';
-                let roomId = '';
-                for (let i = 0; i < 5; i++) {
-                    const randomIndex = Math.floor(Math.random() * characters.length);
-                    roomId += characters[randomIndex];
-                }
-                return roomId;
-            };
-    
             const newRoomId = generateRoomId();
-            socket.emit("createRoom", newRoomId);
+            socket.emit("createRoom", { roomId: newRoomId, mode });
+            setShowModeDialog(false);
         }
     };
 
@@ -108,9 +115,30 @@ function App() {
 
             {!isInRoom && (
                 <div className="room-controls">
-                    <button onClick={handleCreateRoom}>Create Room</button>
-                    
+                    <button onClick={() => setShowModeDialog(true)}>Create Room</button>
                     <button onClick={handleJoinRoom}>Join Room</button>
+
+                    {showModeDialog && (
+                        <div className="modal-overlay">
+                            <div className="modal">
+                                <h2>Choose Room Type</h2>
+                                <div className="modal-buttons">
+                                    <button onClick={() => handleCreateRoom('collaborative')}>
+                                        Collaborative Editor
+                                    </button>
+                                    <button onClick={() => handleCreateRoom('readonly')}>
+                                        Share Text (Read-only for others)
+                                    </button>
+                                </div>
+                                <button 
+                                    className="close-button"
+                                    onClick={() => setShowModeDialog(false)}
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -120,13 +148,17 @@ function App() {
                     <textarea
                         value={document}
                         onChange={handleChange}
-                        rows="500"
-                        cols="80    "
+                        rows="20"
+                        cols="80"
                         placeholder="Start typing..."
+                        readOnly={!isEditable}
+                        className={!isEditable ? 'readonly' : ''}
                     />
                     <div className="status-message">
                         {isConnected 
-                            ? "You can start typing. Changes will sync automatically."
+                            ? isEditable 
+                                ? "You can start typing. Changes will sync automatically."
+                                : "This is a read-only document."
                             : "Attempting to connect..."}
                     </div>
                 </div>

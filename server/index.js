@@ -1,7 +1,7 @@
 import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
-import dotenv from 'dotenv'
+import dotenv from 'dotenv';
 
 const app = express();
 dotenv.config({ path: './.env' });
@@ -21,22 +21,28 @@ const getRoomParticipants = (roomId) => {
 
 io.on("connection", (socket) => {
     console.log("New client connected:", socket.id);
-    socket.on("createRoom", (roomId) => {
+
+    socket.on("createRoom", ({ roomId, mode }) => {
         if (rooms.has(roomId)) {
             socket.emit("error", "Room already exists");
             return;
         }
+
         rooms.set(roomId, {
             document: "",
-            creator: socket.id
+            creator: socket.id,
+            mode
         });
-
+        
         socket.join(roomId);
-        socket.emit("roomCreated", roomId);
+        socket.emit("roomCreated", {
+            roomId,
+            isEditable: true // Creator always has edit rights
+        });
         
         io.to(roomId).emit("participantUpdate", getRoomParticipants(roomId));
         
-        console.log(`Room created: ${roomId}`);
+        console.log(`Room created: ${roomId} with mode: ${mode}`);
     });
 
     socket.on("joinRoom", (roomId) => {
@@ -45,12 +51,16 @@ io.on("connection", (socket) => {
             return;
         }
 
+        const room = rooms.get(roomId);
+        const isEditable = room.mode === 'collaborative' || socket.id === room.creator;
+        
         socket.join(roomId);
         
         socket.emit("roomJoined", {
             roomId,
-            document: rooms.get(roomId).document,
-            participants: getRoomParticipants(roomId)
+            document: room.document,
+            participants: getRoomParticipants(roomId),
+            isEditable
         });
 
         io.to(roomId).emit("participantUpdate", getRoomParticipants(roomId));
@@ -64,7 +74,14 @@ io.on("connection", (socket) => {
             return;
         }
 
-        rooms.get(roomId).document = document;
+        const room = rooms.get(roomId);
+        
+        // Only allow updates from creator in readonly mode
+        if (room.mode === 'readonly' && socket.id !== room.creator) {
+            return;
+        }
+
+        room.document = document;
         
         io.to(roomId).emit("documentUpdate", document);
         
@@ -85,7 +102,7 @@ io.on("connection", (socket) => {
     });
 });
 
-const port = process.env.port;
+const port = process.env.PORT || 3001;
 server.listen(port, () => {
     console.log(`Server is running on port ${port}`);
 });
