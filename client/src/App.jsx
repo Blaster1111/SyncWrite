@@ -150,7 +150,7 @@ function App() {
                         onChange={handleChange}
                         rows="20"
                         cols="80"
-                        placeholder="Start typing..."
+                        placeholder={isEditable ? 'Start Typing...' : 'Room owner is typing...'}
                         readOnly={!isEditable}
                         className={!isEditable ? 'readonly' : ''}
                     />
