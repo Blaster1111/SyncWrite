@@ -17,7 +17,7 @@ function App() {
     const [textCopySuccess, setTextCopySuccess] = useState(false);
 
     useEffect(() => {
-        const socketIo = io("localhost:3001");
+        const socketIo = io("https://syncwrite-jjsg.onrender.com");
 
         socketIo.on("connect", () => {
             setIsConnected(true);
