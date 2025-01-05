@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import io from 'socket.io-client';
-import './App.css';
+import { Users, Wifi, WifiOff, Copy } from 'lucide-react';
 
 function App() {
     const [document, setDocument] = useState("");
@@ -13,19 +13,19 @@ function App() {
     const [participants, setParticipants] = useState(0);
     const [isEditable, setIsEditable] = useState(true);
     const [showModeDialog, setShowModeDialog] = useState(false);
+    const [copySuccess, setCopySuccess] = useState(false);
+    const [textCopySuccess, setTextCopySuccess] = useState(false);
 
     useEffect(() => {
         const socketIo = io("localhost:3001");
 
         socketIo.on("connect", () => {
-            console.log("Socket.IO connected");
             setIsConnected(true);
             setError(null);
             setSocket(socketIo);
         });
 
         socketIo.on("disconnect", () => {
-            console.log("Socket.IO disconnected");
             setIsConnected(false);
         });
 
@@ -103,63 +103,159 @@ function App() {
         }
     };
 
+    const copyRoomId = () => {
+        navigator.clipboard.writeText(roomId);
+        setCopySuccess(true);
+        setTimeout(() => setCopySuccess(false), 2000);
+    };
+
+    const copyText = () => {
+        navigator.clipboard.writeText(document);
+        setTextCopySuccess(true);
+        setTimeout(() => setTextCopySuccess(false), 2000);
+    };
+
     return (
-        <div className="App">
-            <h1>SyncWrite</h1>
-            <div className="status">
-                <div>Status: {isConnected ? '🟢 Connected' : '🔴 Disconnected'}</div>
-                {isInRoom && <div>Participants: {participants}</div>}
-                {error && <div className="error">{error}</div>}
-                {roomError && <div className="error">{roomError}</div>}
-            </div>
-
-            {!isInRoom && (
-                <div className="room-controls">
-                    <button onClick={() => setShowModeDialog(true)}>Create Room</button>
-                    <button onClick={handleJoinRoom}>Join Room</button>
-
-                    {showModeDialog && (
-                        <div className="modal-overlay">
-                            <div className="modal">
-                                <h2>Choose Room Type</h2>
-                                <div className="modal-buttons">
-                                    <button onClick={() => handleCreateRoom('collaborative')}>
-                                        Collaborative Editor
-                                    </button>
-                                    <button onClick={() => handleCreateRoom('readonly')}>
-                                        Share Text (Read-only for others)
-                                    </button>
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
+            <div className="w-full h-full flex flex-col">
+                <header className="w-full bg-white/80 backdrop-blur-sm shadow-sm">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                                SyncWrite
+                            </h1>
+                            <div className="flex flex-wrap items-center gap-3">
+                                <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white shadow-sm">
+                                    {isConnected ? (
+                                        <Wifi className="w-4 h-4 text-green-500" />
+                                    ) : (
+                                        <WifiOff className="w-4 h-4 text-red-500" />
+                                    )}
+                                    <span className={`text-sm ${isConnected ? 'text-green-500' : 'text-red-500'}`}>
+                                        {isConnected ? 'Connected' : 'Disconnected'}
+                                    </span>
                                 </div>
-                                <button 
-                                    className="close-button"
-                                    onClick={() => setShowModeDialog(false)}
+                                {isInRoom && (
+                                    <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white shadow-sm">
+                                        <Users className="w-4 h-4 text-blue-500" />
+                                        <span className="text-sm text-gray-600">{participants}</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </header>
+
+                <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                    {(error || roomError) && (
+                        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-600">
+                            {error || roomError}
+                        </div>
+                    )}
+
+                    {!isInRoom ? (
+                        <div className="flex flex-col items-center gap-4 p-6 sm:p-8 bg-white rounded-xl shadow-lg">
+                            <h2 className="text-xl sm:text-2xl font-semibold text-gray-800 mb-4">
+                                Start Collaborating
+                            </h2>
+                            <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+                                <button
+                                    onClick={() => setShowModeDialog(true)}
+                                    className="w-full sm:w-auto px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                                 >
-                                    Close
+                                    Create Room
+                                </button>
+                                <button
+                                    onClick={handleJoinRoom}
+                                    className="w-full sm:w-auto px-6 py-3 bg-white text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
+                                >
+                                    Join Room
                                 </button>
                             </div>
                         </div>
-                    )}
-                </div>
-            )}
+                    ) : (
+                        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 h-[calc(100vh-12rem)]">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <h3 className="text-lg font-medium text-gray-700">Room ID:</h3>
+                                    <code className="px-3 py-1 bg-gray-100 rounded-md text-sm font-mono">
+                                        {roomId}
+                                    </code>
+                                    <button
+                                        onClick={copyRoomId}
+                                        className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                                        title="Copy Room ID"
+                                    >
+                                        <Copy className="w-4 h-4 text-gray-500" />
+                                    </button>
+                                    {copySuccess && (
+                                        <span className="text-sm text-green-500">Copied!</span>
+                                    )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={copyText}
+                                        className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                                        title="Copy Text"
+                                    >
+                                        <Copy className="w-4 h-4" />
+                                        Copy Text
+                                    </button>
+                                    {textCopySuccess && (
+                                        <span className="text-sm text-green-500">Copied!</span>
+                                    )}
+                                </div>
+                            </div>
 
-            {isInRoom && (
-                <div className="editor">
-                    <h3>Room ID: {roomId}</h3>
-                    <textarea
-                        value={document}
-                        onChange={handleChange}
-                        rows="20"
-                        cols="80"
-                        placeholder={isEditable ? 'Start Typing...' : 'Room owner is typing...'}
-                        readOnly={!isEditable}
-                        className={!isEditable ? 'readonly' : ''}
-                    />
-                    <div className="status-message">
-                        {isConnected 
-                            ? isEditable 
-                                ? "You can start typing. Changes will sync automatically."
-                                : "This is a read-only document."
-                            : "Attempting to connect..."}
+                            <div className="h-[calc(100%-5rem)]">
+                                <textarea
+                                    value={document}
+                                    onChange={handleChange}
+                                    placeholder={isEditable ? 'Start typing...' : 'Room owner is typing...'}
+                                    readOnly={!isEditable}
+                                    className={`w-full h-full p-4 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none ${
+                                        !isEditable ? 'bg-gray-50 cursor-not-allowed' : 'bg-white'
+                                    }`}
+                                />
+                            </div>
+                            <div className="mt-4 text-sm text-gray-500 italic">
+                                {isConnected 
+                                    ? isEditable 
+                                        ? "Changes sync automatically in real-time"
+                                        : "This is a read-only document"
+                                    : "Attempting to connect..."}
+                            </div>
+                        </div>
+                    )}
+                </main>
+            </div>
+
+            {showModeDialog && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-xl p-6 max-w-md w-full m-4">
+                        <h2 className="text-2xl font-semibold text-gray-800 mb-6">
+                            Choose Room Type
+                        </h2>
+                        <div className="space-y-4">
+                            <button
+                                onClick={() => handleCreateRoom('collaborative')}
+                                className="w-full p-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                            >
+                                Collaborative Editor
+                            </button>
+                            <button
+                                onClick={() => handleCreateRoom('readonly')}
+                                className="w-full p-4 bg-white text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
+                            >
+                                Share Text (Read-only for others)
+                            </button>
+                        </div>
+                        <button 
+                            className="mt-6 w-full p-3 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                            onClick={() => setShowModeDialog(false)}
+                        >
+                            Cancel
+                        </button>
                     </div>
                 </div>
             )}
