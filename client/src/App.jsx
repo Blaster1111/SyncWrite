@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import io from 'socket.io-client';
 import { Users, Wifi, WifiOff, Copy } from 'lucide-react';
 
@@ -15,6 +15,8 @@ function App() {
     const [showModeDialog, setShowModeDialog] = useState(false);
     const [copySuccess, setCopySuccess] = useState(false);
     const [textCopySuccess, setTextCopySuccess] = useState(false);
+    
+    const timeoutRef = useRef(null);
 
     useEffect(() => {
         const socketIo = io("https://syncwrite-jjsg.onrender.com");
@@ -62,6 +64,9 @@ function App() {
             if (socketIo) {
                 socketIo.disconnect();
             }
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+            }
         };
     }, []);
 
@@ -71,9 +76,16 @@ function App() {
         const newDocument = e.target.value;
         setDocument(newDocument);
 
-        if (socket && socket.connected && roomId) {
-            socket.emit("documentUpdate", { roomId, document: newDocument });
+        if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
         }
+
+        timeoutRef.current = setTimeout(() => {
+            if (socket && socket.connected && roomId) {
+                socket.emit("documentUpdate", { roomId, document: newDocument });
+            }
+        }, 500);
+
     }, [socket, roomId, isEditable]);
 
     const generateRoomId = () => {
